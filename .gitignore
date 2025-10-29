@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+*.log
+.DS_Store
+
+# Test files
+test-ocr.js
+default.jpg
+*.jpg
+*.jpeg
+*.png
+*.gif

@@ -1,0 +1,22 @@
+{
+  "name": "arke-ocr-service",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker for OCR extraction using DeepInfra",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "wrangler dev --test-scheduled"
+  },
+  "keywords": ["ocr", "cloudflare-worker", "deepinfra"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "openai": "^4.77.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "typescript": "^5.7.2",
+    "wrangler": "^3.94.0"
+  }
+}
