@@ -1,4 +1,4 @@
-import { Env, OCRResponse, ErrorResponse } from './types';
+import { Env, OCRRequest, OCRResponse, ErrorResponse } from './types';
 import { createDeepInfraClient, extractTextFromImage } from './utils/deepinfra';
 
 /**
@@ -21,6 +21,18 @@ function isValidImageContentType(contentType: string | null): boolean {
   return contentType.startsWith('image/');
 }
 
+/**
+ * Validates that a string is a valid HTTP/HTTPS URL
+ */
+function isValidHttpUrl(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     // Only accept POST requests
@@ -41,18 +53,6 @@ export default {
     }
 
     try {
-      // Validate Content-Type header
-      const contentType = request.headers.get('Content-Type');
-      if (!isValidImageContentType(contentType)) {
-        return Response.json(
-          {
-            error: 'Invalid Content-Type',
-            details: 'Content-Type must be an image MIME type (e.g., image/jpeg, image/png)',
-          } as ErrorResponse,
-          { status: 400 }
-        );
-      }
-
       // Check for API key
       if (!env.DEEPINFRA_API_KEY) {
         return Response.json(
@@ -64,21 +64,63 @@ export default {
         );
       }
 
-      // Read binary image data
-      const imageBuffer = await request.arrayBuffer();
-      if (imageBuffer.byteLength === 0) {
+      const contentType = request.headers.get('Content-Type');
+      let imageUrl: string;
+
+      // Handle JSON input with URL
+      if (contentType?.includes('application/json')) {
+        const body = await request.json() as OCRRequest;
+
+        if (!body.imageUrl) {
+          return Response.json(
+            {
+              error: 'Invalid request',
+              details: 'imageUrl field is required in JSON body',
+            } as ErrorResponse,
+            { status: 400 }
+          );
+        }
+
+        if (!isValidHttpUrl(body.imageUrl)) {
+          return Response.json(
+            {
+              error: 'Invalid URL',
+              details: 'imageUrl must be a valid HTTP or HTTPS URL',
+            } as ErrorResponse,
+            { status: 400 }
+          );
+        }
+
+        imageUrl = body.imageUrl;
+      }
+      // Handle binary image input
+      else if (isValidImageContentType(contentType)) {
+        // Read binary image data
+        const imageBuffer = await request.arrayBuffer();
+        if (imageBuffer.byteLength === 0) {
+          return Response.json(
+            { error: 'Empty request body' } as ErrorResponse,
+            { status: 400 }
+          );
+        }
+
+        // Convert to base64 data URL
+        imageUrl = createImageDataUrl(imageBuffer, contentType!);
+      }
+      // Invalid Content-Type
+      else {
         return Response.json(
-          { error: 'Empty request body' } as ErrorResponse,
+          {
+            error: 'Invalid Content-Type',
+            details: 'Content-Type must be application/json or an image MIME type (e.g., image/jpeg, image/png)',
+          } as ErrorResponse,
           { status: 400 }
         );
       }
 
-      // Convert to base64 data URL
-      const imageDataUrl = createImageDataUrl(imageBuffer, contentType!);
-
       // Initialize DeepInfra client and extract text
       const client = createDeepInfraClient(env.DEEPINFRA_API_KEY);
-      const result = await extractTextFromImage(client, imageDataUrl);
+      const result = await extractTextFromImage(client, imageUrl);
 
       // Return OCR response
       const response: OCRResponse = {

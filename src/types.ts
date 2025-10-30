@@ -1,4 +1,11 @@
 /**
+ * OCR request structure for URL-based input
+ */
+export interface OCRRequest {
+  imageUrl: string;      // URL of the image to process
+}
+
+/**
  * OCR response structure expected by the orchestrator
  */
 export interface OCRResponse {
