@@ -11,6 +11,7 @@ export interface OCRRequest {
 export interface OCRResponse {
   text: string;          // Extracted text from the image
   tokens: number;        // Number of tokens consumed
+  warning?: string;      // Optional warning message (e.g., about dimensions)
 }
 
 /**

@@ -14,11 +14,13 @@ function createImageDataUrl(imageBuffer: ArrayBuffer, mimeType: string): string 
 }
 
 /**
- * Validates that the Content-Type is an image MIME type
+ * Validates that the Content-Type is a supported image MIME type
+ * Supported formats: JPEG, PNG, WebP (per DeepInfra olmOCR-2 documentation)
  */
 function isValidImageContentType(contentType: string | null): boolean {
   if (!contentType) return false;
-  return contentType.startsWith('image/');
+  const supportedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  return supportedTypes.includes(contentType.toLowerCase());
 }
 
 /**
@@ -30,6 +32,20 @@ function isValidHttpUrl(urlString: string): boolean {
     return url.protocol === 'http:' || url.protocol === 'https:';
   } catch {
     return false;
+  }
+}
+
+/**
+ * Gets image dimensions from binary data
+ */
+async function getImageDimensions(imageBuffer: ArrayBuffer, mimeType: string): Promise<{ width: number; height: number } | null> {
+  try {
+    // For now, we'll return null as dimension checking in Cloudflare Workers
+    // requires additional image processing libraries
+    // This is a placeholder for future enhancement
+    return null;
+  } catch {
+    return null;
   }
 }
 
@@ -112,7 +128,7 @@ export default {
         return Response.json(
           {
             error: 'Invalid Content-Type',
-            details: 'Content-Type must be application/json or an image MIME type (e.g., image/jpeg, image/png)',
+            details: 'Content-Type must be application/json (for URL input) or a supported image type. Supported formats: image/jpeg, image/png, image/webp. Note: For best results, images should have their longest dimension at 1288 pixels.',
           } as ErrorResponse,
           { status: 400 }
         );
@@ -122,17 +138,22 @@ export default {
       const client = createDeepInfraClient(env.DEEPINFRA_API_KEY);
       const result = await extractTextFromImage(client, imageUrl);
 
-      // Return OCR response
+      // Return OCR response with optional dimension warning
       const response: OCRResponse = {
         text: result.text,
         tokens: result.tokens,
       };
 
+      // Add informational note about optimal dimensions
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-OCR-Optimal-Dimensions': '1288px on longest side',
+        'X-OCR-Supported-Formats': 'image/jpeg, image/png, image/webp',
+      };
+
       return Response.json(response, {
         status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
       });
     } catch (error) {
       console.error('OCR processing error:', error);
