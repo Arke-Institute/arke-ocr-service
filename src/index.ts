@@ -82,6 +82,7 @@ export default {
 
       const contentType = request.headers.get('Content-Type');
       let imageUrl: string;
+      let fallbackUrl: string | undefined;
 
       // Handle JSON input with URL
       if (contentType?.includes('application/json')) {
@@ -107,7 +108,24 @@ export default {
           );
         }
 
-        imageUrl = body.imageUrl;
+        // For Arke CDN images, try to use the /medium variant (1288px)
+        // which is optimal for OCR token usage
+        if (body.imageUrl.includes('cdn.arke.institute/asset/')) {
+          // Try to request the medium variant
+          // Pattern: https://cdn.arke.institute/asset/{assetId} or
+          //          https://cdn.arke.institute/asset/{assetId}/original
+          const assetIdMatch = body.imageUrl.match(/\/asset\/([A-Z0-9]+)(?:\/\w+)?/);
+          if (assetIdMatch) {
+            const assetId = assetIdMatch[1];
+            imageUrl = `https://cdn.arke.institute/asset/${assetId}/medium`;
+            // Keep the original base URL as fallback (for non-variant assets)
+            fallbackUrl = `https://cdn.arke.institute/asset/${assetId}`;
+          } else {
+            imageUrl = body.imageUrl;
+          }
+        } else {
+          imageUrl = body.imageUrl;
+        }
       }
       // Handle binary image input
       else if (isValidImageContentType(contentType)) {
@@ -136,7 +154,7 @@ export default {
 
       // Initialize DeepInfra client and extract text
       const client = createDeepInfraClient(env.DEEPINFRA_API_KEY);
-      const result = await extractTextFromImage(client, imageUrl);
+      const result = await extractTextFromImage(client, imageUrl, fallbackUrl);
 
       // Return OCR response with optional dimension warning
       const response: OCRResponse = {
@@ -150,6 +168,11 @@ export default {
         'X-OCR-Optimal-Dimensions': '1288px on longest side',
         'X-OCR-Supported-Formats': 'image/jpeg, image/png, image/webp',
       };
+
+      // Add header indicating which URL was actually used (if available)
+      if (result.urlUsed) {
+        headers['X-Image-URL-Used'] = result.urlUsed.includes('/medium') ? 'medium-variant' : 'base-url';
+      }
 
       return Response.json(response, {
         status: 200,
