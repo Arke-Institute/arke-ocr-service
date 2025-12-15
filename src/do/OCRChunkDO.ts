@@ -97,7 +97,7 @@ export class OCRChunkDO implements DurableObject {
       phase: 'PROCESSING',
       pis: req.pis.map(pi => ({
         pi: pi.pi,
-        current_tip: pi.current_tip,
+        // Note: No current_tip stored - we fetch fresh tips before publishing
         refs: pi.refs.map(r => ({
           filename: r.filename,
           staging_key: r.staging_key,
@@ -403,15 +403,19 @@ export class OCRChunkDO implements DurableObject {
       }
 
       try {
+        // Fetch fresh tip before updating (avoids stale tip bug from bidirectional updates)
+        this.debugLog(`Fetching fresh tip for ${pi.pi}`);
+        const freshTip = await ipfs.getEntityTip(pi.pi);
+        this.debugLog(`Got fresh tip: ${freshTip}`);
+
         this.debugLog(`Calling appendVersionWithRetry for ${pi.pi}`);
         const result = await ipfs.appendVersionWithRetry(
           pi.pi,
-          pi.current_tip,
+          freshTip,
           components,
           `OCR: Updated ${Object.keys(components).length} refs`
         );
 
-        pi.current_tip = result.tip;
         pi.new_tip = result.tip;
         pi.new_version = result.ver;
         pi.entity_updated = true;

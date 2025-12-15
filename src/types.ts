@@ -34,9 +34,9 @@ export interface OCRChunkRequest {
   chunk_id: string;
 
   // Work items
+  // Note: No current_tip - service fetches fresh tips before publishing (avoids stale tip bug)
   pis: Array<{
     pi: string;
-    current_tip: string;
     refs: Array<{
       filename: string;      // e.g., "photo.jpg.ref.json"
       staging_key: string;   // R2 key for ref JSON
@@ -155,10 +155,10 @@ export interface RefState {
 
 /**
  * State for a single PI being processed
+ * Note: No current_tip stored - we fetch fresh tips before publishing (avoids stale tip bug)
  */
 export interface PIState {
   pi: string;
-  current_tip: string;
   refs: RefState[];
 
   // PI-level state

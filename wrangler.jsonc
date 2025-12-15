@@ -47,7 +47,7 @@
     "ENVIRONMENT": "development",
 
     // Processing configuration
-    "MAX_PARALLEL_OCR": "20",
+    "MAX_PARALLEL_OCR": "50",
     "ALARM_INTERVAL_MS": "300",
 
     // Retry configuration
