@@ -4,8 +4,54 @@
   "compatibility_date": "2024-10-01",
   "compatibility_flags": ["nodejs_compat"],
 
+  // Durable Objects
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "OCR_CHUNK_DO",
+        "class_name": "OCRChunkDO"
+      }
+    ]
+  },
+
+  // DO migrations
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["OCRChunkDO"]
+    }
+  ],
+
+  // R2 bucket for staging files
+  "r2_buckets": [
+    {
+      "binding": "STAGING_BUCKET",
+      "bucket_name": "arke-staging"
+    }
+  ],
+
+  // Service bindings
+  "services": [
+    {
+      "binding": "IPFS_WRAPPER",
+      "service": "arke-ipfs-api"
+    },
+    {
+      "binding": "ORCHESTRATOR",
+      "service": "arke-orchestrator"
+    }
+  ],
+
   // Environment variables
   "vars": {
-    "ENVIRONMENT": "development"
+    "ENVIRONMENT": "development",
+
+    // Processing configuration
+    "MAX_PARALLEL_OCR": "20",
+    "ALARM_INTERVAL_MS": "300",
+
+    // Retry configuration
+    "MAX_RETRIES_PER_REF": "3",
+    "MAX_GLOBAL_RETRIES": "5"
   }
 }
