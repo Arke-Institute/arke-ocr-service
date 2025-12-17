@@ -4,7 +4,7 @@
   "compatibility_date": "2024-10-01",
   "compatibility_flags": ["nodejs_compat"],
 
-  // Durable Objects
+  // Durable Objects - SQLite-backed
   "durable_objects": {
     "bindings": [
       {
@@ -14,11 +14,19 @@
     ]
   },
 
-  // DO migrations
+  // DO migrations - v2 deletes old KV DO, v3 creates SQLite DO
   "migrations": [
     {
       "tag": "v1",
       "new_classes": ["OCRChunkDO"]
+    },
+    {
+      "tag": "v2",
+      "deleted_classes": ["OCRChunkDO"]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["OCRChunkDO"]
     }
   ],
 
@@ -53,5 +61,15 @@
     // Retry configuration
     "MAX_RETRIES_PER_REF": "3",
     "MAX_GLOBAL_RETRIES": "5"
+  },
+
+  
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true,
+      "persist": true
+    }
   }
 }

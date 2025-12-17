@@ -30,10 +30,11 @@ export default {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         }));
-      } catch (error: any) {
-        console.error('[OCR] /process error:', error);
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error('[OCR] /process error:', msg);
         return Response.json(
-          { error: 'Invalid request', details: error.message },
+          { error: 'Invalid request', details: msg },
           { status: 400 }
         );
       }
@@ -65,7 +66,7 @@ export default {
       return Response.json({
         status: 'ok',
         service: 'arke-ocr-service',
-        version: '2.0.0',
+        version: '3.0.0',  // SQLite version
       });
     }
 

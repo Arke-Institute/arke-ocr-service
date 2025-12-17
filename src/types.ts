@@ -33,16 +33,11 @@ export interface OCRChunkRequest {
   batch_id: string;
   chunk_id: string;
 
-  // Work items
-  // Note: No current_tip - service fetches fresh tips before publishing (avoids stale tip bug)
-  pis: Array<{
-    pi: string;
-    refs: Array<{
-      filename: string;      // e.g., "photo.jpg.ref.json"
-      staging_key: string;   // R2 key for ref JSON
-      cdn_url: string;       // CDN URL for image
-    }>;
-  }>;
+  // Work items - just PI strings, service fetches context from IPFS
+  pis: string[];
+
+  // Optional custom prompt (not used for OCR but for consistency)
+  custom_prompt?: string;
 }
 
 /**
@@ -85,6 +80,7 @@ export interface OCRChunkStatusResponse {
   };
 
   error?: string;
+  debug_log?: string[];
 }
 
 /**
@@ -127,6 +123,7 @@ export interface OCRChunkCallback {
 
 /**
  * Processing phases
+ * PENDING -> FETCHING -> PROCESSING -> PUBLISHING -> DONE
  */
 export type OCRPhase = 'PENDING' | 'FETCHING' | 'PROCESSING' | 'PUBLISHING' | 'DONE' | 'ERROR';
 
@@ -140,13 +137,16 @@ export type RefStatus = 'pending' | 'processing' | 'done' | 'skipped' | 'error';
  */
 export interface RefState {
   filename: string;
-  staging_key: string;
   cdn_url: string;
+  original_cid: string;  // Original CID from entity (used to read ref data)
 
   // Processing state
   status: RefStatus;
   error?: string;
   retry_count: number;
+
+  // Cached ref data (fetched once, updated with OCR)
+  ref_data?: RefData;
 
   // Result
   result_cid?: string;
@@ -191,7 +191,10 @@ export interface OCRChunkState {
   // Phase
   phase: OCRPhase;
 
-  // PIs and their refs
+  // PI list (input) - populated from request
+  pi_list: string[];
+
+  // PIs and their refs - populated after FETCHING phase
   pis: PIState[];
 
   // Backoff state for rate limit handling

@@ -1,11 +1,47 @@
 import { IPFSUploadResult, IPFSAppendVersionResult } from '../types';
 
+// ============ Types ============
+
+export interface EntityResponse {
+  id: string;
+  type: string;
+  label?: string;
+  description?: string;
+  created_at: string;
+  ver: number;
+  ts: string;
+  manifest_cid: string;
+  prev_cid?: string;
+  components: Record<string, string>;
+  parent_id?: string;
+  children_id?: string[];
+  source_id?: string;
+}
+
+// ============ Errors ============
+
+export class IPFSError extends Error {
+  constructor(message: string, public statusCode?: number) {
+    super(message);
+    this.name = 'IPFSError';
+  }
+}
+
+export class NotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NotFoundError';
+  }
+}
+
 /**
  * Client for the Arke IPFS Wrapper API
  *
  * Uses service binding to communicate with arke-ipfs-api worker.
  */
 export class IPFSWrapperClient {
+  private baseUrl = 'https://api.internal';
+
   constructor(private fetcher: Fetcher) {}
 
   /**
@@ -30,7 +66,7 @@ export class IPFSWrapperClient {
     const blob = new Blob([content], { type: 'application/json' });
     formData.append('file', blob, filename);
 
-    const response = await this.fetcher.fetch('https://api/upload', {
+    const response = await this.fetcher.fetch(`${this.baseUrl}/upload`, {
       method: 'POST',
       body: formData,
     });
@@ -75,7 +111,7 @@ export class IPFSWrapperClient {
       body.note = note;
     }
 
-    const response = await this.fetcher.fetch(`https://api/entities/${pi}/versions`, {
+    const response = await this.fetcher.fetch(`${this.baseUrl}/entities/${pi}/versions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -102,7 +138,7 @@ export class IPFSWrapperClient {
    * Get current entity tip (for refreshing after CAS failure)
    */
   async getEntityTip(pi: string): Promise<string> {
-    const response = await this.fetcher.fetch(`https://api/resolve/${pi}`, {
+    const response = await this.fetcher.fetch(`${this.baseUrl}/resolve/${pi}`, {
       method: 'GET',
       headers: this.getNetworkHeader(pi),
     });
@@ -112,8 +148,58 @@ export class IPFSWrapperClient {
       throw new Error(`IPFS resolve failed (${response.status}): ${error}`);
     }
 
-    const result: { pi: string; tip: string } = await response.json();
+    const result: { id: string; tip: string } = await response.json();
     return result.tip;
+  }
+
+  /**
+   * Get entity by PI
+   */
+  async getEntity(pi: string): Promise<EntityResponse> {
+    const response = await this.fetcher.fetch(`${this.baseUrl}/entities/${pi}`, {
+      method: 'GET',
+      headers: this.getNetworkHeader(pi),
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new NotFoundError(`Entity ${pi} not found`);
+      }
+      const error = await response.text();
+      throw new IPFSError(`Failed to get entity ${pi}: ${error}`, response.status);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Download raw content by CID
+   */
+  async downloadContent(cid: string): Promise<string> {
+    const response = await this.fetcher.fetch(`${this.baseUrl}/cat/${cid}`, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new NotFoundError(`Content ${cid} not found`);
+      }
+      throw new IPFSError(`Failed to download ${cid}`, response.status);
+    }
+
+    return response.text();
+  }
+
+  /**
+   * Download and parse JSON content
+   */
+  async downloadJSON<T = unknown>(cid: string): Promise<T> {
+    const content = await this.downloadContent(cid);
+    try {
+      return JSON.parse(content);
+    } catch (e) {
+      throw new IPFSError(`Failed to parse JSON from ${cid}: ${e}`);
+    }
   }
 
   /**
